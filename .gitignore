@@ -1,0 +1,4 @@
+**/.idea/*
+*.beam
+*.dump
+*.iml
