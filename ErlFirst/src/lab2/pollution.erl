@@ -1,14 +1,14 @@
 -module(pollution).
 -author("Agnieszka Dutka").
--record(station, {coords, name, measurements =[]}).
--record(measurement, {datetime, type, value}).
+-record(station, {coords, name, measurements =#{}}).
+-record(mkey, {datetime, type}).
 -define(IS_COORD(Geo), is_tuple(Geo), size(Geo)==2, is_number(element(1, Geo)), is_number(element(2, Geo))).
 -define(IS_NAME(Name), is_list(Name)).
 -define(IS_DATE(Date), is_tuple(Date), size(Date)==3, is_integer(element(1, Date)), is_integer(element(2, Date)), is_integer(element(3, Date))).
 -define(IS_TIME(Time), is_tuple(Time), size(Time)==3, is_integer(element(1, Time)), is_integer(element(2, Time)), is_integer(element(3, Time))).
 -define(IS_DATE_TIME(Datetime), is_tuple(Datetime), size(Datetime)==2, ?IS_DATE(element(1, Datetime)), ?IS_TIME(element(2, Datetime))).
 %% API
--export([createMonitor/0, addStation/3, addValueToStation/4, addValue/5, removeValue/4]).
+-export([createMonitor/0, addStation/3, addValue/5, removeValue/4, getOneValue/4, getStationMean/3, getDailyMean/3]).
 
 createMonitor() -> [].
 
@@ -22,41 +22,59 @@ addStation(Stations, Name, Coord)->
   end.
 
 %% ADDING MEASUREMENT -----------------------------------------------------------------------
-addValueToStation(Date, Type, Value, Station = #station{measurements = Ms}) ->
-  Found = fun (#measurement{datetime= FDate, type= FType}) -> (FDate == Date) and (FType == Type) end,
-  case lists:any(Found, Ms) of
-    false -> Station#station{measurements = [#measurement{datetime = Date, type = Type, value = Value}|Ms]};
-    _ -> throw("measurement already exists")
+addMeasurement(_, Date, Type,_)  when not ?IS_DATE_TIME(Date);  not is_list(Type) -> throw("incorrect measurement data");
+addMeasurement(Ms, Date, Type,Value) ->
+  Found = maps:is_key(#mkey{datetime = Date, type = Type}, Ms),
+  case Found of
+    true -> throw("measurement already exist");
+    _ -> maps:put(#mkey{datetime = Date, type = Type}, Value, Ms)
   end.
 
-%% type check
 addValue(_, Id,  _, _, _) when not ?IS_NAME(Id) and not ?IS_COORD(Id) -> throw("identifier not correct");
-addValue(_, _, Date, _, _) when not ?IS_DATE_TIME(Date) -> throw("date not correct");
-addValue(_, _, _, Type, _) when not is_list(Type) -> throw("type not correct");
-%% recursion
 addValue( [], _, _, _, _) -> throw("station not found");
-addValue( [ St = #station{name= Name} | Stations ], Name, Date, Type, Value) -> [ addValueToStation(Date, Type, Value, St) | Stations ];
-addValue( [ St = #station{coords= Coords} | Stations ],Coords, Date, Type, Value) -> [ addValueToStation(Date, Type, Value, St) | Stations ];
+addValue( [ St = #station{name= Name, measurements = Ms} | Stations ], Name, Date, Type, Value) ->
+  [ St#station{measurements = addMeasurement(Ms, Date, Type, Value)} | Stations ];
+addValue( [ St = #station{coords= Coords, measurements = Ms} | Stations ],Coords, Date, Type, Value) ->
+  [ St#station{measurements = addMeasurement(Ms, Date, Type, Value)} | Stations ];
 addValue( [ H | Stations ], Id, Date, Type, Value) -> [H | addValue(Stations, Id, Date, Type, Value)].
 
 %% REMOVING MEASUREMENT -----------------------------------------------------------------------
 removeValue([], _, _, _) -> throw("station not found");
 removeValue([ St = #station{name= Name, measurements = Ms} | Stations ], Name, Date, Type) ->
-  [St#station{measurements = removeValueFromMs(Ms, Date, Type)} | Stations ];
+  [St#station{measurements = maps:remove(#mkey{datetime = Date, type = Type}, Ms)} | Stations ];
 removeValue([ St = #station{coords = Coord, measurements = Ms} | Stations ], Coord, Date, Type) ->
-  [St#station{measurements = removeValueFromMs(Ms, Date, Type)} | Stations ];
+  [St#station{measurements = maps:remove(#mkey{datetime = Date, type = Type}, Ms)} | Stations ];
 removeValue([H|Stations], Id, Date, Type) -> [H|removeValue(Stations, Id, Date, Type)].
 
-removeValueFromMs([], _, _) -> throw("measurement to remove not found"); % or just [] ?
-removeValueFromMs([#measurement{datetime = Date, type = Type} |Ms], Date, Type) -> Ms;
-removeValueFromMs([M|Ms], Date, Type) -> [M| removeValueFromMs(Ms, Date, Type)].
-
+%% GET ONE VALUE ------------------------------------------------------------------------------
 getOneValue([], _, _, _)  -> throw("station not found");
-getOneValue([#station{name= Name, measurements = Ms} | _ ], Name, Date, Type)  -> getOneValueFromMs(Ms, Date, Type);
-getOneValue([#station{coords = Coord, measurements = Ms} | _ ], Coord, Date, Type)  -> getOneValueFromMs(Ms, Date, Type);
-getOneValue([H|Stations], Id, Date, Type) -> getOneValue(Stations, Id, Date, Type).
+getOneValue([#station{name= Name, measurements = Ms} | _ ], Name, Date, Type)  ->
+  maps:get(#mkey{datetime = Date, type = Type}, Ms);
+getOneValue([#station{coords = Coord, measurements = Ms} | _ ], Coord, Date, Type)  ->
+  maps:get(#mkey{datetime = Date, type = Type}, Ms);
+getOneValue([_|Stations], Id, Date, Type) -> getOneValue(Stations, Id, Date, Type).
 
-findStation(Stations, Name) ->
+%% STATION MEAN ------------------------------------------------------------------------------
+getStationMean([], _, _) -> throw("station not found");
+getStationMean([#station{name= Name, measurements = Ms} | _ ], Name, Type) -> getMean(Ms, Type);
+getStationMean([#station{coords= Coord, measurements = Ms} | _ ], Coord, Type) -> getMean(Ms, Type);
+getStationMean([_ | Stations ], Id, Type) -> getStationMean(Stations, Id, Type).
+
+getMean(Ms, Type) ->
+  Filtered = maps:filter(fun(#mkey{type = T}, _) -> T==Type end, Ms),
+  Sum = maps:fold( fun(_, V, Acc) -> V+Acc end, 0, Filtered),
+  Sum/maps:size(Filtered).
+
+%% DAILY MEAN ------------------------------------------------------------------------------
+getDailyMean(Stations, Day, Type) ->
+  Values = lists:foldl(fun(St, Acc)-> getFilteredValues(St, Day, Type)++Acc end ,[], Stations),
+  Sum = lists:sum(Values),
+  Sum/length(Values).
+
+getFilteredValues(#station{measurements = Ms}, Day, Type) ->
+  Filtered = maps:filter(fun(#mkey{type = T, datetime = {FDay, _}}, _) -> T==Type andalso FDay==Day end, Ms),
+  maps:values(Filtered).
+
 
 
 
