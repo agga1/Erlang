@@ -21,6 +21,7 @@ addStation(Stations, Name, Coord)->
     _ -> throw("station already exists")
   end.
 
+%% ADDING MEASUREMENT -----------------------------------------------------------------------
 addValueToStation(Date, Type, Value, Station = #station{measurements = Ms}) ->
   Found = fun (#measurement{datetime= FDate, type= FType}) -> (FDate == Date) and (FType == Type) end,
   case lists:any(Found, Ms) of
@@ -28,29 +29,26 @@ addValueToStation(Date, Type, Value, Station = #station{measurements = Ms}) ->
     _ -> throw("measurement already exists")
   end.
 
-%%findByName(_, []) ->throw("station doesn't exit");
-%%findByName(Name, [St =#station{name=Name} |_]) -> St;
-%%%%findByName(Name, Sts) -> lists:keyfind(#station{name=Name}, 1, Sts);
-%%findByName(Name, [_ |Stations]) -> findByName(Name, Stations).
-%%
-%%findByCoord(_, []) ->throw("station doesn't exit");
-%%findByCoord(Coord, [St =#station{coords= Coord} |_]) -> St;
-%%findByCoord(Coord, [_ |Stations]) -> findByCoord(Coord, Stations).
-
 %% type check
 addValue(_, Id,  _, _, _) when not ?IS_NAME(Id) and not ?IS_COORD(Id) -> throw("identifier not correct");
 addValue(_, _, Date, _, _) when not ?IS_DATE_TIME(Date) -> throw("date not correct");
 addValue(_, _, _, Type, _) when not is_list(Type) -> throw("type not correct");
 %% recursion
-addValue( [], _, _, _, _) -> throw("station does not exist");
+addValue( [], _, _, _, _) -> throw("station not found");
 addValue( [ St = #station{name= Name} | Stations ], Name, Date, Type, Value) -> [ addValueToStation(Date, Type, Value, St) | Stations ];
 addValue( [ St = #station{coords= Coords} | Stations ],Coords, Date, Type, Value) -> [ addValueToStation(Date, Type, Value, St) | Stations ];
-addValue( [ H | Stations ], Id, Date, Type, Value) -> [H] ++ addValue(Stations, Id, Date, Type, Value).
+addValue( [ H | Stations ], Id, Date, Type, Value) -> [H | addValue(Stations, Id, Date, Type, Value)].
 
-removeValue([], _, _, _) -> throw("no measurement to remove");
-removeValue([ St = #station{name= Name} | Stations ], Name, Date, Type) -> [removeFromStation(St, Date, Type) | Stations ];
-removeValue([ St = #station{coords = Coord} | Stations ], Coord, Date, Type) -> [removeFromStation(St, Date, Type) | Stations ];
-removeValue([H|Stations], Id, Date, Type) -> removeValue(Stations, Id, Date, Type).
+%% REMOVING MEASUREMENT -----------------------------------------------------------------------
+removeValue([], _, _, _) -> throw("station not found");
+removeValue([ St = #station{name= Name, measurements = Ms} | Stations ], Name, Date, Type) ->
+  [St#station{measurements = removeMeasurement(Ms, Date, Type)} | Stations ];
+removeValue([ St = #station{coords = Coord, measurements = Ms} | Stations ], Coord, Date, Type) ->
+  [St#station{measurements = removeMeasurement(Ms, Date, Type)} | Stations ];
+removeValue([H|Stations], Id, Date, Type) -> [H|removeValue(Stations, Id, Date, Type)].
 
-removeFromStation(St, Date, Type) ->
-  erlang:error(not_implemented).
+removeMeasurement([], _, _) -> throw("measurement to remove not found"); % or just [] ?
+removeMeasurement([#measurement{datetime = Date, type = Type} |Ms], Date, Type) -> Ms;
+removeMeasurement([M|Ms], Date, Type) -> [M|removeMeasurement(Ms, Date, Type)].
+
+
