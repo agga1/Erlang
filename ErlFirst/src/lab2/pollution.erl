@@ -42,13 +42,22 @@ addValue( [ H | Stations ], Id, Date, Type, Value) -> [H | addValue(Stations, Id
 %% REMOVING MEASUREMENT -----------------------------------------------------------------------
 removeValue([], _, _, _) -> throw("station not found");
 removeValue([ St = #station{name= Name, measurements = Ms} | Stations ], Name, Date, Type) ->
-  [St#station{measurements = removeMeasurement(Ms, Date, Type)} | Stations ];
+  [St#station{measurements = removeValueFromMs(Ms, Date, Type)} | Stations ];
 removeValue([ St = #station{coords = Coord, measurements = Ms} | Stations ], Coord, Date, Type) ->
-  [St#station{measurements = removeMeasurement(Ms, Date, Type)} | Stations ];
+  [St#station{measurements = removeValueFromMs(Ms, Date, Type)} | Stations ];
 removeValue([H|Stations], Id, Date, Type) -> [H|removeValue(Stations, Id, Date, Type)].
 
-removeMeasurement([], _, _) -> throw("measurement to remove not found"); % or just [] ?
-removeMeasurement([#measurement{datetime = Date, type = Type} |Ms], Date, Type) -> Ms;
-removeMeasurement([M|Ms], Date, Type) -> [M|removeMeasurement(Ms, Date, Type)].
+removeValueFromMs([], _, _) -> throw("measurement to remove not found"); % or just [] ?
+removeValueFromMs([#measurement{datetime = Date, type = Type} |Ms], Date, Type) -> Ms;
+removeValueFromMs([M|Ms], Date, Type) -> [M| removeValueFromMs(Ms, Date, Type)].
+
+getOneValue([], _, _, _)  -> throw("station not found");
+getOneValue([#station{name= Name, measurements = Ms} | _ ], Name, Date, Type)  -> getOneValueFromMs(Ms, Date, Type);
+getOneValue([#station{coords = Coord, measurements = Ms} | _ ], Coord, Date, Type)  -> getOneValueFromMs(Ms, Date, Type);
+getOneValue([H|Stations], Id, Date, Type) -> getOneValue(Stations, Id, Date, Type).
+
+findStation(Stations, Name) ->
+
+
 
 
