@@ -8,7 +8,7 @@
 -define(IS_TIME(Time), is_tuple(Time), size(Time)==3, is_integer(element(1, Time)), is_integer(element(2, Time)), is_integer(element(3, Time))).
 -define(IS_DATE_TIME(Datetime), is_tuple(Datetime), size(Datetime)==2, ?IS_DATE(element(1, Datetime)), ?IS_TIME(element(2, Datetime))).
 %% API
--export([createMonitor/0, addStation/3, addValue/5, removeValue/4, getOneValue/4, getStationMean/3]).
+-export([createMonitor/0, addStation/3, addValue/5, removeValue/4, getOneValue/4, getStationMean/3, getDailyMean/3]).
 
 createMonitor() -> [].
 
@@ -66,6 +66,14 @@ getMean(Ms, Type) ->
   Sum/maps:size(Filtered).
 
 %% DAILY MEAN ------------------------------------------------------------------------------
+getDailyMean(Stations, Day, Type) ->
+  Values = lists:foldl(fun(St, Acc)-> getFilteredValues(St, Day, Type)++Acc end ,[], Stations),
+  Sum = lists:sum(Values),
+  Sum/length(Values).
+
+getFilteredValues(#station{measurements = Ms}, Day, Type) ->
+  Filtered = maps:filter(fun(#mkey{type = T, datetime = {FDay, _}}, _) -> T==Type andalso FDay==Day end, Ms),
+  maps:values(Filtered).
 
 
 
