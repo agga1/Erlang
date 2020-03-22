@@ -7,7 +7,7 @@
 map(F, List) -> [F(X) || X <-List].
 filter(F, List) -> [X || X<-List, F(X)].
 
-sumDigits(Nr)->lists:foldl(fun(X, Y)-> X+Y end, 0, toList(abs(Nr))).
+sumDigits(Nr)->lists:foldl(fun(X, Acc)-> X+Acc end, 0, toList(abs(Nr))).
 toList(Nr) when Nr <10 -> [Nr];
 toList(Nr) -> [Nr rem 10 | toList(Nr div 10)].
 
