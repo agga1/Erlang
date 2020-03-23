@@ -8,7 +8,7 @@
 -define(IS_TIME(Time), is_tuple(Time), size(Time)==3, is_integer(element(1, Time)), is_integer(element(2, Time)), is_integer(element(3, Time))).
 -define(IS_DATE_TIME(Datetime), is_tuple(Datetime), size(Datetime)==2, ?IS_DATE(element(1, Datetime)), ?IS_TIME(element(2, Datetime))).
 %% API
--export([createMonitor/0, addStation/3, addValue/5, removeValue/4, getOneValue/4, getStationMean/3, getDailyMean/3, getPeakHours/2, getHourlyMean/3]).
+-export([createMonitor/0, addStation/3, addValue/5, removeValue/4, getOneValue/4, getStationMean/3, getDailyMean/3, getPeakHours/2, getHourlyMean/3, mostActiveStation/1]).
 
 createMonitor() -> [].
 
@@ -68,7 +68,6 @@ getMean(Ms, Type) ->
   Filtered = maps:filter(fun(#mkey{type = T}, _) -> T==Type end, Ms),
   Sum = maps:fold( fun(_, V, Acc) -> V+Acc end, 0, Filtered),
   calculateMean(Sum, maps:size(Filtered)).
-%%  Sum/maps:size(Filtered).
 
 %% DAILY MEAN ------------------------------------------------------------------------------
 getDailyMean(Stations, Day, Type) ->
@@ -93,4 +92,12 @@ getHourlyMean(Stations, Hour, Type) ->
            end,
   Values = lists:foldl(fun(St, Acc)-> ToFilteredValues(St, Hour, Type)++Acc end ,[], Stations),
   calculateMean(lists:sum(Values), length(Values)).
+
+%% MOST ACTIVE STATION -------------------------------------------------------------------------
+% displays name of station which registered the most measurements
+mostActiveStation(Stations) ->
+  MsForEach = lists:map(fun(#station{name=Name, measurements = Ms})-> {Name, maps:size(Ms)} end , Stations),
+  MaxMs = lists:foldl(fun({_, Val}, Acc)-> max(Val, Acc) end ,0,MsForEach),
+  MostActive =  lists:filter(fun({_, Val})->Val==MaxMs end,MsForEach),
+  io:format("Most active stations: ~p~n", [lists:map(fun({Name, _})-> Name end, MostActive)]).
 
