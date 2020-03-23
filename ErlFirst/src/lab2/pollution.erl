@@ -8,7 +8,7 @@
 -define(IS_TIME(Time), is_tuple(Time), size(Time)==3, is_integer(element(1, Time)), is_integer(element(2, Time)), is_integer(element(3, Time))).
 -define(IS_DATE_TIME(Datetime), is_tuple(Datetime), size(Datetime)==2, ?IS_DATE(element(1, Datetime)), ?IS_TIME(element(2, Datetime))).
 %% API
--export([createMonitor/0, addStation/3, addValue/5, removeValue/4, getOneValue/4, getStationMean/3, getDailyMean/3]).
+-export([createMonitor/0, addStation/3, addValue/5, removeValue/4, getOneValue/4, getStationMean/3, getDailyMean/3, getPeakHours/2, getHourlyMean/3]).
 
 createMonitor() -> [].
 
@@ -22,6 +22,7 @@ addStation(Stations, Name, Coord)->
   end.
 
 %% ADDING MEASUREMENT -----------------------------------------------------------------------
+% adding measurement to list of measurements Ms
 addMeasurement(_, Date, Type,_)  when not ?IS_DATE_TIME(Date);  not is_list(Type) -> throw("incorrect measurement data");
 addMeasurement(Ms, Date, Type,Value) ->
   Found = maps:is_key(#mkey{datetime = Date, type = Type}, Ms),
@@ -29,7 +30,7 @@ addMeasurement(Ms, Date, Type,Value) ->
     true -> throw("measurement already exist");
     _ -> maps:put(#mkey{datetime = Date, type = Type}, Value, Ms)
   end.
-
+% searching for station with given Id and modifying its measurements map
 addValue(_, Id,  _, _, _) when not ?IS_NAME(Id) and not ?IS_COORD(Id) -> throw("identifier not correct");
 addValue( [], _, _, _, _) -> throw("station not found");
 addValue( [ St = #station{name= Name, measurements = Ms} | Stations ], Name, Date, Type, Value) ->
@@ -53,6 +54,9 @@ getOneValue([#station{name= Name, measurements = Ms} | _ ], Name, Date, Type)  -
 getOneValue([#station{coords = Coord, measurements = Ms} | _ ], Coord, Date, Type)  ->
   maps:get(#mkey{datetime = Date, type = Type}, Ms);
 getOneValue([_|Stations], Id, Date, Type) -> getOneValue(Stations, Id, Date, Type).
+%% MEAN --------------------------------------------------------------------------------------
+calculateMean(_, 0) -> 0;  % exclude division by 0
+calculateMean(Sum, N) -> Sum/N.
 
 %% STATION MEAN ------------------------------------------------------------------------------
 getStationMean([], _, _) -> throw("station not found");
@@ -63,19 +67,30 @@ getStationMean([_ | Stations ], Id, Type) -> getStationMean(Stations, Id, Type).
 getMean(Ms, Type) ->
   Filtered = maps:filter(fun(#mkey{type = T}, _) -> T==Type end, Ms),
   Sum = maps:fold( fun(_, V, Acc) -> V+Acc end, 0, Filtered),
-  Sum/maps:size(Filtered).
+  calculateMean(Sum, maps:size(Filtered)).
+%%  Sum/maps:size(Filtered).
 
 %% DAILY MEAN ------------------------------------------------------------------------------
 getDailyMean(Stations, Day, Type) ->
-  Values = lists:foldl(fun(St, Acc)-> getFilteredValues(St, Day, Type)++Acc end ,[], Stations),
-  Sum = lists:sum(Values),
-  Sum/length(Values).
+  ToFilteredValues = fun(#station{measurements = Ms}, Day, Type) ->
+    maps:values( maps:filter(fun(#mkey{type = T, datetime = {FDay, _}}, _) -> T==Type andalso FDay==Day end, Ms) )
+    end,
+  Values = lists:foldl(fun(St, Acc)-> ToFilteredValues(St, Day, Type)++Acc end ,[], Stations),
+  calculateMean(lists:sum(Values), length(Values)).
 
-getFilteredValues(#station{measurements = Ms}, Day, Type) ->
-  Filtered = maps:filter(fun(#mkey{type = T, datetime = {FDay, _}}, _) -> T==Type andalso FDay==Day end, Ms),
-  maps:values(Filtered).
+%% HOUR OF HIGHEST PEAK -------
+% function returns hours in which average value for given type of measurement across stations is the highest
+getPeakHours(Stations, Type) ->
+  AvgForHour = [ {Hour, getHourlyMean(Stations, Hour, Type)} || Hour<-lists:seq(0, 23)],
+  MaxVal = lists:foldl(fun({_, Val}, Acc)-> max(Val, Acc) end ,0,AvgForHour),
+  AllHighest = lists:filter(fun({_, Val})->Val==MaxVal end,AvgForHour),
+  Hours = lists:map(fun({Hour, _})-> integer_to_list(Hour) end, AllHighest),
+  io:format("highest value: ~p~npeak hours: ~p~n", [MaxVal,Hours]).
 
-
-
-
+getHourlyMean(Stations, Hour, Type) ->
+  ToFilteredValues = fun(#station{measurements = Ms}, Hour, Type) ->
+    maps:values( maps:filter(fun(#mkey{type = T, datetime = {_, {FHour, _, _}}}, _) -> T==Type andalso FHour==Hour end, Ms) )
+           end,
+  Values = lists:foldl(fun(St, Acc)-> ToFilteredValues(St, Hour, Type)++Acc end ,[], Stations),
+  calculateMean(lists:sum(Values), length(Values)).
 
