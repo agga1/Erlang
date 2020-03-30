@@ -12,13 +12,13 @@
 
 createMonitor() -> [].
 
-addStation(_, Name, _) when not ?IS_NAME(Name) -> throw("provided name is illegal");
-addStation(_, _, Coord) when not ?IS_COORD(Coord) -> throw("geographical coordinates incorrect");
+addStation(_, Name, _) when not ?IS_NAME(Name) -> {error, illegal_name};
+addStation(_, _, Coord) when not ?IS_COORD(Coord) ->{error, illegal_coordinates};
 addStation(Stations, Name, Coord)->
   Found = fun (#station{name = Name1, coords = Coord1}) -> (Name1 == Name) or  (Coord1 == Coord) end,
   case lists:any(Found, Stations) of
     false ->[#station{coords = Coord, name=Name} |Stations];
-    _ -> throw("station already exists")
+    _ -> {error, station_exists}
   end.
 
 %% ADDING MEASUREMENT -----------------------------------------------------------------------
@@ -27,12 +27,12 @@ addMeasurement(_, Date, Type,_)  when not ?IS_DATE_TIME(Date);  not is_list(Type
 addMeasurement(Ms, Date, Type,Value) ->
   Found = maps:is_key(#mkey{datetime = Date, type = Type}, Ms),
   case Found of
-    true -> throw("measurement already exist");
+    true -> {error, measurement_exists};
     _ -> maps:put(#mkey{datetime = Date, type = Type}, Value, Ms)
   end.
 % searching for station with given Id and modifying its measurements map
-addValue(_, Id,  _, _, _) when not ?IS_NAME(Id) and not ?IS_COORD(Id) -> throw("identifier not correct");
-addValue( [], _, _, _, _) -> throw("station not found");
+addValue(_, Id,  _, _, _) when not ?IS_NAME(Id) and not ?IS_COORD(Id) -> {error, incorrect_id};
+addValue( [], _, _, _, _) -> {error, station_not_found};
 addValue( [ St = #station{name= Name, measurements = Ms} | Stations ], Name, Date, Type, Value) ->
   [ St#station{measurements = addMeasurement(Ms, Date, Type, Value)} | Stations ];
 addValue( [ St = #station{coords= Coords, measurements = Ms} | Stations ],Coords, Date, Type, Value) ->
@@ -40,7 +40,7 @@ addValue( [ St = #station{coords= Coords, measurements = Ms} | Stations ],Coords
 addValue( [ H | Stations ], Id, Date, Type, Value) -> [H | addValue(Stations, Id, Date, Type, Value)].
 
 %% REMOVING MEASUREMENT -----------------------------------------------------------------------
-removeValue([], _, _, _) -> throw("station not found");
+removeValue([], _, _, _) -> {error, station_not_found};
 removeValue([ St = #station{name= Name, measurements = Ms} | Stations ], Name, Date, Type) ->
   [St#station{measurements = maps:remove(#mkey{datetime = Date, type = Type}, Ms)} | Stations ];
 removeValue([ St = #station{coords = Coord, measurements = Ms} | Stations ], Coord, Date, Type) ->
@@ -48,7 +48,7 @@ removeValue([ St = #station{coords = Coord, measurements = Ms} | Stations ], Coo
 removeValue([H|Stations], Id, Date, Type) -> [H|removeValue(Stations, Id, Date, Type)].
 
 %% GET ONE VALUE ------------------------------------------------------------------------------
-getOneValue([], _, _, _)  -> throw("station not found");
+getOneValue([], _, _, _)  -> {error, station_not_found};
 getOneValue([#station{name= Name, measurements = Ms} | _ ], Name, Date, Type)  ->
   maps:get(#mkey{datetime = Date, type = Type}, Ms);
 getOneValue([#station{coords = Coord, measurements = Ms} | _ ], Coord, Date, Type)  ->
@@ -59,7 +59,7 @@ calculateMean(_, 0) -> 0;  % exclude division by 0
 calculateMean(Sum, N) -> Sum/N.
 
 %% STATION MEAN ------------------------------------------------------------------------------
-getStationMean([], _, _) -> throw("station not found");
+getStationMean([], _, _) -> {error, station_not_found};
 getStationMean([#station{name= Name, measurements = Ms} | _ ], Name, Type) -> getMean(Ms, Type);
 getStationMean([#station{coords= Coord, measurements = Ms} | _ ], Coord, Type) -> getMean(Ms, Type);
 getStationMean([_ | Stations ], Id, Type) -> getStationMean(Stations, Id, Type).
@@ -78,7 +78,7 @@ getDailyMean(Stations, Day, Type) ->
   calculateMean(lists:sum(Values), length(Values)).
 
 %% HOUR OF HIGHEST PEAK -------
-% function returns hours in which average value for given type of measurement across stations is the highest
+% find hours in which average value for given type of measurement across stations is the highest
 getPeakHours(Stations, Type) ->
   AvgForHour = [ {Hour, getHourlyMean(Stations, Hour, Type)} || Hour<-lists:seq(0, 23)],
   MaxVal = lists:foldl(fun({_, Val}, Acc)-> max(Val, Acc) end ,0,AvgForHour),
