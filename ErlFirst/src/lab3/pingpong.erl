@@ -2,27 +2,37 @@
 -author("Agnieszka Dutka").
 
 %% API
--export([start/0, stop/0, play/0]).
+-export([start/0, stop/0, play/1, ping_fun/1, pong_fun/0]).
 
 start()->
-  register(ping, spawn(?MODULE, ping_fun(), [])),
-  register(pong, spawn(?MODULE, pong_fun(), [])).
+  register(ping, spawn(?MODULE, ping_fun, [0])),
+  register(pong, spawn(?MODULE, pong_fun, [])).
 
 stop()->
   ping ! stop,
   pong ! stop.
 
-play()->
-  ping ! 5.
+play(N) when is_integer(N)->
+  ping ! N.
 
-ping_fun()->
+ping_fun(Sum)->
   receive
-    _ -> io:format("ping");
+    N when is_integer(N), N >0 -> io:format("[ping] ~p, new state: ~p~n", [N, Sum +N]),
+        timer:sleep(1000),
+        pong ! N-1,
+        ping_fun(Sum +N);
     stop -> ok
+  after
+    20000 -> ok
   end.
 
 pong_fun()->
   receive
-    _ -> io:format("pong");
+    N when is_integer(N), N >0 -> io:format("[pong] ~p~n", [N]),
+      timer:sleep(1000),
+      ping ! N-1,
+      pong_fun();
     stop -> ok
+  after
+    20000 -> ok
   end.
