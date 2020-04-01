@@ -13,3 +13,4 @@ addStation_test() ->
   ?assertMatch({error, illegal_name}, pollution:addStation(M2, 3, {4, 1})),
   ?assertMatch({error, station_exists}, pollution:addStation(M2, "ONE", {2,3})),
   ?assertMatch({error, station_exists}, pollution:addStation(M2, "FOUR", {1,1})).
+
