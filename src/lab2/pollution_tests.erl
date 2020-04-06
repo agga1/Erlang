@@ -14,8 +14,8 @@ addStation_test() ->
   M2 = pollution:addStation(M1,"TWO", {1, 2}),
   ?assertEqual(2, length(M2)),
   ?assertMatch({error, illegal_name}, pollution:addStation(M2, 3, {4, 1})),
-  ?assertMatch({error, station_exists}, pollution:addStation(M2, "ONE", {2,3})).
-%%  ?assertMatch({error, illegal_coordinates}, pollution:addStation(M2, "THREE", {1,1, 1})).
+  ?assertMatch({error, station_exists}, pollution:addStation(M2, "ONE", {2,3})),
+  ?assertMatch({error, station_exists}, pollution:addStation(M2, "THREE", {1, 1})).
 
 addValue_test()->
   M = pollution:createMonitor(),
@@ -30,7 +30,8 @@ removeValue_test()->
   M2 = pollution:addValue(M1, "ONE", {{1, 1, 1}, {1, 1, 1}}, "PM10", 50),
   [H|_] = pollution:removeValue(M2, "ONE", {{1, 1, 1}, {1, 1, 1}}, "PM10"),
   {station, _, _, Ms} = H,
-  ?assertEqual(maps:size(Ms), 0).
+  ?assertEqual(maps:size(Ms), 0),
+  pollution:removeValue(M2, "ONE", {{1, 1, 1}, {1, 1, 1}}, "PM10"). % quiet remove - nothing happens if not found
 
 getOneValue_test() ->
   M = pollution:createMonitor(),
