@@ -12,7 +12,7 @@ stop()->
   ping ! stop,
   pong ! stop.
 
-play(N) when is_integer(N)->
+play(N) when is_integer(N) andalso N>=0 ->
   ping ! N.
 
 ping_fun(Sum)->

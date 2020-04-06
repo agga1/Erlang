@@ -1,8 +1,20 @@
 -module(parcel).
 -author("Agnieszka Dutka").
--export([randList/1, findMyParcelLocker/2, findLockersSeq/2, findLoop/3, findLockersParallel/2, findSingle/3, findLockersSemiParallel/3]).
+-export([randList/1, findMyParcelLocker/2, findLockersSeq/2, findLoop/3, findLockersParallel/2, findSingle/3, findLockersSemiParallel/3,  compareTime/2]).
 
 randList(N) -> [ {random:uniform(10001)-1,random:uniform(10001)-1}  || _<-lists:seq(1, N)].
+
+getTimeinSec(Func, Args) ->
+  {Time,_} = timer:tc(?MODULE, Func, Args),
+  Time/1000000.
+
+compareTime(PersonsNo, LockersNo) ->
+  Persons = randList(PersonsNo),
+  Lockers =  randList(LockersNo),
+  Time1 = getTimeinSec(findLockersSeq,[Persons, Lockers]),
+  Time2 = getTimeinSec(findLockersParallel, [Persons, Lockers]),
+  Time3 = getTimeinSec(findLockersSemiParallel, [Persons, Lockers, 8]),
+  io:format("Elapsed time:~nsequntial: ~ps~nparallel: ~ps~nsemi-parallel: ~ps~n", [Time1, Time2, Time3]).
 
 %% -------------findMyParcelLocker(PersonLocation, LockerLocations)
 findMyParcelLocker(_, []) -> {error, no_lockers};
