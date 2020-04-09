@@ -1,7 +1,7 @@
 -module(pollution).
 -author("Agnieszka Dutka").
 -record(station, {coords, name, measurements =#{}}).
--record(measkey, {datetime, type}).
+-record(measKey, {datetime, type}).
 -define(IS_NAME(Name), is_list(Name)).
 -define(IS_COORD(Geo), (is_tuple(Geo) andalso  size(Geo)==2 andalso  is_number(element(1, Geo)) andalso  is_number(element(2, Geo)))).
 -define(IS_DATE(Date), (is_tuple(Date) andalso size(Date)==3 andalso is_integer(element(1, Date)) andalso is_integer(element(2, Date)) andalso  is_integer(element(3, Date)))).
@@ -26,10 +26,10 @@ addStation(Stations, Name, Coord)->
 % adding measurement to given list of measurements Ms
 addMeasurement(_, Date, Type,_)  when not ?IS_DATE_TIME(Date);  not is_list(Type) -> {error, incorrect_datatype};
 addMeasurement(Ms, Date, Type,Value) ->
-  Found = maps:is_key(#measkey{datetime = Date, type = Type}, Ms),
+  Found = maps:is_key(#measKey{datetime = Date, type = Type}, Ms),
   case Found of
     true -> {error, measurement_exists};
-    _ -> maps:put(#measkey{datetime = Date, type = Type}, Value, Ms)
+    _ -> maps:put(#measKey{datetime = Date, type = Type}, Value, Ms)
   end.
 % searching for station with given Id and modifying its measurements map
 %% arguments:    addValue(Monitor, StationId (Name or Coordinates),  Date, Type, Value),
@@ -60,9 +60,9 @@ addValue( [ H | Stations ], Id, Date, Type, Value) ->
 % arguments: (Monitor, StationId, Date, Type), returns: modified Monitor
 removeValue([], _, _, _) -> [];  % quiet remove
 removeValue([ St = #station{name= Name, measurements = Ms} | Stations ], Name, Date, Type) ->
-  [St#station{measurements = maps:remove(#measkey{datetime = Date, type = Type}, Ms)} | Stations ];
+  [St#station{measurements = maps:remove(#measKey{datetime = Date, type = Type}, Ms)} | Stations ];
 removeValue([ St = #station{coords = Coord, measurements = Ms} | Stations ], Coord, Date, Type) ->
-  [St#station{measurements = maps:remove(#measkey{datetime = Date, type = Type}, Ms)} | Stations ];
+  [St#station{measurements = maps:remove(#measKey{datetime = Date, type = Type}, Ms)} | Stations ];
 removeValue([H|Stations], Id, Date, Type) -> [H|removeValue(Stations, Id, Date, Type)].
 
 %% GET ONE VALUE ------------------------------------------------------------------------------
@@ -70,9 +70,9 @@ removeValue([H|Stations], Id, Date, Type) -> [H|removeValue(Stations, Id, Date, 
 % arguments: (Monitor, StationId, Date, Type)
 getOneValue([], _, _, _)  -> {error, station_not_found};
 getOneValue([#station{name= Name, measurements = Ms} | _ ], Name, Date, Type)  ->
-  maps:get(#measkey{datetime = Date, type = Type}, Ms);
+  maps:get(#measKey{datetime = Date, type = Type}, Ms);
 getOneValue([#station{coords = Coord, measurements = Ms} | _ ], Coord, Date, Type)  ->
-  maps:get(#measkey{datetime = Date, type = Type}, Ms);
+  maps:get(#measKey{datetime = Date, type = Type}, Ms);
 getOneValue([_|Stations], Id, Date, Type) -> getOneValue(Stations, Id, Date, Type).
 
 %% MEAN --------------------------------------------------------------------------------------
@@ -88,7 +88,7 @@ getStationMean([#station{coords= Coord, measurements = Ms} | _ ], Coord, Type) -
 getStationMean([_ | Stations ], Id, Type) -> getStationMean(Stations, Id, Type).
 
 getMean(Ms, Type) ->
-  Filtered = maps:filter(fun(#measkey{type = T}, _) -> T==Type end, Ms),
+  Filtered = maps:filter(fun(#measKey{type = T}, _) -> T==Type end, Ms),
   Sum = maps:fold( fun(_, V, Acc) -> V+Acc end, 0, Filtered),
   calculateMean(Sum, maps:size(Filtered)).
 
@@ -97,7 +97,7 @@ getMean(Ms, Type) ->
 % arguments: (Monitor, Day, Type)
 getDailyMean(Stations, Day, Type) ->
   ToFilteredValues = fun(#station{measurements = Ms}, Day, Type) ->
-    maps:values( maps:filter(fun(#measkey{type = T, datetime = {FDay, _}}, _) -> T==Type andalso FDay==Day end, Ms) )
+    maps:values( maps:filter(fun(#measKey{type = T, datetime = {FDay, _}}, _) -> T==Type andalso FDay==Day end, Ms) )
     end,
   Values = lists:foldl(fun(St, Acc)-> ToFilteredValues(St, Day, Type)++Acc end ,[], Stations),
   calculateMean(lists:sum(Values), length(Values)).
@@ -116,7 +116,7 @@ getPeakHours(Stations, Type) ->
 % get mean across stations for given hour of given measurement type
 getHourlyMean(Stations, Hour, Type) ->
   ToFilteredValues = fun(#station{measurements = Ms}, Hour, Type) ->
-    maps:values( maps:filter(fun(#measkey{type = T, datetime = {_, {FHour, _, _}}}, _) -> T==Type andalso FHour==Hour end, Ms) )
+    maps:values( maps:filter(fun(#measKey{type = T, datetime = {_, {FHour, _, _}}}, _) -> T==Type andalso FHour==Hour end, Ms) )
            end,
   Values = lists:foldl(fun(St, Acc)-> ToFilteredValues(St, Hour, Type)++Acc end ,[], Stations),
   calculateMean(lists:sum(Values), length(Values)).

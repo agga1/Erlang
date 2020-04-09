@@ -14,7 +14,8 @@ compareTime(PersonsNo, LockersNo) ->
   Time1 = getTimeinSec(findLockersSeq,[Persons, Lockers]),
   Time2 = getTimeinSec(findLockersParallel, [Persons, Lockers]),
   Time3 = getTimeinSec(findLockersSemiParallel, [Persons, Lockers, 8]),
-  io:format("Elapsed time:~nsequntial: ~ps~nparallel: ~ps~nsemi-parallel: ~ps~n", [Time1, Time2, Time3]).
+  io:format("Elapsed time for ~p people and ~p lockers:~nsequntial: ~ps~nparallel: ~ps~nsemi-parallel: ~ps~n",
+    [PersonsNo, LockersNo, Time1, Time2, Time3]).
 
 %% -------------findMyParcelLocker(PersonLocation, LockerLocations)
 findMyParcelLocker(_, []) -> {error, no_lockers};
