@@ -7,7 +7,7 @@
 
 start()-> register(pollution_server, spawn(?MODULE, init, [])).
 init() -> loop(pollution:createMonitor()).
-stop() -> pollution_server ! stop.
+stop() -> call(stop).
 
 call(Message) ->
   pollution_server ! {request, self(), Message},
@@ -18,10 +18,13 @@ call(Message) ->
 loop(Monitor) ->
   receive
     {request, Pid, Message} ->
-      {reply, Reply, NewMonitor} = handle_call(Message, Pid, Monitor),
-      Pid ! {reply, Reply},
-      loop(NewMonitor);
-    stop -> ok
+      case handle_call(Message, Pid, Monitor) of
+        {reply, Reply, NewMonitor} ->
+            Pid ! {reply, Reply},
+            loop(NewMonitor);
+        {stop, Reply, _ } ->
+            Pid ! {reply, Reply}
+      end
   end.
 
 safe_return(NewMonitor, Monitor)->
@@ -75,4 +78,7 @@ handle_call({getPeakHours,Type}, _From, Monitor) ->
 
 handle_call({mostActiveStation}, _From, Monitor) ->
   Value = pollution:mostActiveStation(Monitor),
-  {reply, Value, Monitor}.
+  {reply, Value, Monitor};
+
+handle_call(stop, _From, Monitor) ->
+  {stop, normal, Monitor}.
