@@ -70,9 +70,9 @@ removeValue([H|Stations], Id, Date, Type) -> [H|removeValue(Stations, Id, Date, 
 % arguments: (Monitor, StationId, Date, Type)
 getOneValue([], _, _, _)  -> {error, station_not_found};
 getOneValue([#station{name= Name, measurements = Ms} | _ ], Name, Date, Type)  ->
-  maps:get(#measKey{datetime = Date, type = Type}, Ms);
+  maps:get(#measKey{datetime = Date, type = Type}, Ms, {error, no_such_value});
 getOneValue([#station{coords = Coord, measurements = Ms} | _ ], Coord, Date, Type)  ->
-  maps:get(#measKey{datetime = Date, type = Type}, Ms);
+  maps:get(#measKey{datetime = Date, type = Type}, Ms, {error, no_such_value});
 getOneValue([_|Stations], Id, Date, Type) -> getOneValue(Stations, Id, Date, Type).
 
 %% MEAN --------------------------------------------------------------------------------------
