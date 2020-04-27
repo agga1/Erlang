@@ -7,3 +7,6 @@ Higher order functions, list ceomprehension, records and maps
 EUnit tests
 ## Laboratory 3 - Processes in erlang
 process registration and communication
+
+## Pollution
+erlang project combining knowledge from all laboratories
